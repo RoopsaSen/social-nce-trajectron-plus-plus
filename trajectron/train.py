@@ -26,6 +26,12 @@ from tensorboardX import SummaryWriter
 from snce.contrastive import SocialNCE
 from snce.model import ProjHead, EventEncoder
 
+import wandb
+wandb.login()
+
+wandb.init(name='trajectron++', 
+           project='trajectron++')
+
 np.set_printoptions(precision=2, suppress=True)
 torch.set_printoptions(precision=2, sci_mode=False)
 
@@ -336,6 +342,12 @@ def main():
                 # pbar.set_description(f"Epoch {epoch}, {node_type} L: {train_loss.item():.2f}")
                 pbar.set_description(f"Epoch {epoch}, A: {train_loss.item():.4f}, T: {loss_task.item():.4f}, S: {loss_nce.item():.4f}")
                 train_loss.backward()
+                
+                wandb.log({
+                  "Epoch": batch,
+                     "Train Loss": train_loss,
+                     "NCE Loss": loss_nce})
+
                 # Clipping gradients.
                 if hyperparams['grad_clip'] is not None:
                     nn.utils.clip_grad_value_(model_registrar.parameters(), hyperparams['grad_clip'])
@@ -453,12 +465,16 @@ def main():
                         eval_loss_node_type = eval_trajectron.eval_loss(batch, node_type)
                         pbar.set_description(f"Epoch {epoch}, {node_type} L: {eval_loss_node_type.item():.2f}")
                         eval_loss.append({node_type: {'nll': [eval_loss_node_type]}})
+                        wandb.log({
+                            "Epoch": batch,
+                            "Val Loss": {node_type: {'nll': [eval_loss_node_type]}} })
                         del batch
 
                     evaluation.log_batch_errors(eval_loss,
                                                 log_writer,
                                                 f"{node_type}/eval_loss",
                                                 epoch)
+
 
                 # Predict batch timesteps for evaluation dataset evaluation
                 eval_batch_errors = []
